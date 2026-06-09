@@ -6,6 +6,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
+from app.tracing import get_current_trace_id
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agent", tags=["Agent"])
@@ -37,7 +39,8 @@ async def agent_health():
     """Health check for Agent service."""
     return {
         "status": "ok",
-        "executor_ready": _executor is not None
+        "executor_ready": _executor is not None,
+        "trace_id": get_current_trace_id(),
     }
 
 
@@ -49,7 +52,8 @@ async def agent_chat(request: ChatRequest):
 
     try:
         result = await _executor.execute(request.model_dump())
+        result["trace_id"] = get_current_trace_id()
         return result
     except Exception as e:
         logger.error(f"Agent chat error: {e}")
-        return {"error": str(e)}
+        return {"error": str(e), "trace_id": get_current_trace_id()}

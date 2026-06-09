@@ -6,8 +6,9 @@ import os
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from llm import OpenAIProvider, AnthropicProvider
 from agent import AgentExecutor
@@ -15,6 +16,7 @@ from memory import MemoryManager
 from services.rag import DocumentProcessor
 
 from app.routers import rag_router, agent_router, llm_router, memory_router
+from app.tracing import init_tracing, get_current_trace_id, TracingContextMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,7 +24,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Cogniforge AI Service...")
+    # Initialize tracing
+    service_name = os.getenv("OTEL_SERVICE_NAME", "cogniforge-ai")
+    init_tracing(service_name)
+    logger.info("Tracing initialized")
     
     # Initialize LLM Providers
     app.state.llm_providers = {}
@@ -105,6 +110,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add tracing middleware
+app.add_middleware(TracingContextMiddleware)
+
+
+def get_trace_response(trace_id: str | None) -> dict:
+    """Helper to include trace_id in responses."""
+    return {"trace_id": trace_id} if trace_id else {}
+
+
+@app.middleware("http")
+async def add_trace_id_header(request: Request, call_next):
+    """Add trace_id to response headers."""
+    response = await call_next(request)
+    
+    # Get trace_id from context or generate new one
+    trace_id = get_current_trace_id()
+    if trace_id:
+        response.headers["X-Trace-ID"] = trace_id
+    
+    return response
 
 # Register routers
 app.include_router(llm_router)

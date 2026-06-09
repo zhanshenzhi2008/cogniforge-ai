@@ -2,10 +2,12 @@
 LLM Service Router
 """
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+
+from app.tracing import get_current_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +38,8 @@ async def llm_health():
     """Health check for LLM service."""
     return {
         "status": "ok",
-        "providers": list(_providers.keys())
+        "providers": list(_providers.keys()),
+        "trace_id": get_current_trace_id(),
     }
 
 
@@ -50,6 +53,7 @@ async def llm_chat(request: ChatRequest):
 
     try:
         result = await provider.chat(request.model_dump())
+        result["trace_id"] = get_current_trace_id()
         return result
     except Exception as e:
         logger.error(f"LLM chat error: {e}")

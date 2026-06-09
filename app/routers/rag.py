@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 from services.rag import DocumentProcessor
+from app.tracing import get_current_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def rag_health():
     """Health check for RAG service."""
     return {
         "status": "ok",
-        "processor_ready": _processor is not None
+        "processor_ready": _processor is not None,
+        "trace_id": get_current_trace_id(),
     }
 
 
@@ -71,7 +73,8 @@ async def process_document(request: ProcessRequest):
             "success": result.success,
             "document_id": result.document_id,
             "chunks_created": len(result.chunks),
-            "error": result.error
+            "error": result.error,
+            "trace_id": get_current_trace_id(),
         }
     except Exception as e:
         logger.error(f"Error processing document: {e}")
@@ -95,7 +98,8 @@ async def search_knowledge(request: SearchRequest):
         return {
             "query": request.query,
             "results": results,
-            "total": len(results)
+            "total": len(results),
+            "trace_id": get_current_trace_id(),
         }
     except Exception as e:
         logger.error(f"Error searching knowledge base: {e}")
@@ -131,7 +135,8 @@ async def upload_and_process(
             "success": result.success,
             "document_id": result.document_id,
             "chunks_created": len(result.chunks),
-            "error": result.error
+            "error": result.error,
+            "trace_id": get_current_trace_id(),
         }
     except Exception as e:
         logger.error(f"Error processing upload: {e}")
@@ -152,7 +157,8 @@ async def delete_document(collection_name: str, document_id: str):
         return {
             "success": True,
             "document_id": document_id,
-            "chunks_deleted": count
+            "chunks_deleted": count,
+            "trace_id": get_current_trace_id(),
         }
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
