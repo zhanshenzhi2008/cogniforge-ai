@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 current_trace_id: ContextVar[Optional[str]] = ContextVar("current_trace_id", default=None)
 
 
-def init_tracing(service_name: str = "cogniforge-ai") -> None:
+def init_tracing(service_name: str = "cogniforge-ai", app=None) -> None:
     """
     Initialize OpenTelemetry tracing.
     
@@ -28,6 +28,11 @@ def init_tracing(service_name: str = "cogniforge-ai") -> None:
     - Console export (OTEL_SDK_EXPORT=console)
     - OTLP export (default, for collector)
     - Jaeger export (OTEL_EXPORTER=jaeger)
+    
+    Args:
+        service_name: Name of the service for tracing
+        app: Optional FastAPI app instance for instrumentation. If None, 
+             instrumentation should be done separately after app creation.
     """
     # Create resource with service info
     resource = Resource.create({
@@ -94,23 +99,26 @@ def init_tracing(service_name: str = "cogniforge-ai") -> None:
     set_global_textmap(B3MultiFormat())
     logger.info("B3 propagator configured for X-Trace-ID support")
     
-    # Instrument FastAPI
-    try:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-        
-        def add_trace_id_header(request, request_span: Span):
-            """Add trace_id to response headers after each request."""
-            trace_id = format_trace_id(request_span)
-            if trace_id:
-                current_trace_id.set(trace_id)
-        
-        FastAPIInstrumentor.instrument_app(
-            app=None,  # Will be called again in main.py
-            excluded_urls="health,ready,live",
-        )
-        logger.info("FastAPI instrumentation enabled")
-    except ImportError:
-        logger.warning("FastAPI instrumentation not available")
+    # Instrument FastAPI (only if app is provided)
+    if app is not None:
+        try:
+            from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+            
+            def add_trace_id_header(request, request_span: Span):
+                """Add trace_id to response headers after each request."""
+                trace_id = format_trace_id(request_span)
+                if trace_id:
+                    current_trace_id.set(trace_id)
+            
+            FastAPIInstrumentor.instrument_app(
+                app=app,
+                excluded_urls="health,ready,live",
+            )
+            logger.info("FastAPI instrumentation enabled")
+        except ImportError:
+            logger.warning("FastAPI instrumentation not available")
+    else:
+        logger.info("FastAPI app not provided, skipping instrumentation (call instrument_app separately)")
     
     # Instrument httpx for outbound HTTP calls
     try:

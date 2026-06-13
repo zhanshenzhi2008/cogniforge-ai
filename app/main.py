@@ -24,9 +24,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize tracing
+    # Initialize tracing (with app for instrumentation)
     service_name = os.getenv("OTEL_SERVICE_NAME", "cogniforge-ai")
-    init_tracing(service_name)
+    init_tracing(service_name, app=app)
     logger.info("Tracing initialized")
     
     # Initialize LLM Providers
