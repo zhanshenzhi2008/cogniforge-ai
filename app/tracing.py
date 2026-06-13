@@ -3,6 +3,7 @@ OpenTelemetry Tracing Configuration
 """
 import os
 import logging
+import colorlog
 from contextvars import ContextVar
 from typing import Optional
 from datetime import datetime
@@ -36,10 +37,21 @@ class TraceIdLogFilter(logging.Filter):
         return True
 
 
-class TraceIdLogFormatter(logging.Formatter):
+class TraceIdLogFormatter(colorlog.ColoredFormatter):
     """
-    Log formatter that includes trace_id in the log output.
+    Colored log formatter that includes trace_id in the log output.
     """
+    
+    def __init__(self, *args, **kwargs):
+        # Default colors for log levels
+        kwargs.setdefault('log_colors', {
+            'DEBUG': 'cyan',
+            'INFO': 'green',
+            'WARNING': 'yellow',
+            'ERROR': 'red',
+            'CRITICAL': 'red,bg_white',
+        })
+        super().__init__(*args, **kwargs)
     
     def format(self, record: logging.LogRecord) -> str:
         # Get trace_id from record (set by TraceIdLogFilter)
@@ -50,19 +62,20 @@ class TraceIdLogFormatter(logging.Formatter):
 
 def setup_trace_logging():
     """
-    Configure logging to include trace_id in all log messages.
+    Configure logging to include trace_id in all log messages with color support.
     Call this after init_tracing() to enable trace-aware logging.
     """
     # Get root logger
     root_logger = logging.getLogger()
     
-    # Add our filter to root logger
-    root_logger.addFilter(TraceIdLogFilter())
+    # Add our filter to root logger (avoid duplicate filters)
+    if not any(isinstance(f, TraceIdLogFilter) for f in root_logger.filters):
+        root_logger.addFilter(TraceIdLogFilter())
     
-    # Update existing handlers with trace-aware formatter
+    # Update existing handlers with colored trace-aware formatter
     for handler in root_logger.handlers:
-        # Create formatter that includes trace_id
-        formatter = logging.Formatter(
+        # Use TraceIdLogFormatter with colors (colors set in class __init__)
+        formatter = TraceIdLogFormatter(
             fmt='%(asctime)s [%(levelname)s] %(name)s [%(tracemsg)s]',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
@@ -299,9 +312,9 @@ def get_trace_id_header_name() -> str:
     Get the header name used for trace propagation.
     
     Returns:
-        Header name for trace_id (B3 format).
+        Header name for trace_id (统一使用 X-Trace-ID).
     """
-    return "X-B3-TraceId"
+    return "X-Trace-ID"
 
 
 def inject_trace_context(carrier: dict) -> dict:
