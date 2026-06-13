@@ -5,6 +5,7 @@ import os
 import logging
 from contextvars import ContextVar
 from typing import Optional
+from datetime import datetime
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -18,6 +19,54 @@ logger = logging.getLogger(__name__)
 
 # Context variable to store current trace_id for easy access
 current_trace_id: ContextVar[Optional[str]] = ContextVar("current_trace_id", default=None)
+
+
+class TraceIdLogFilter(logging.Filter):
+    """
+    Log filter that adds trace_id to each log record.
+    """
+    
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Get trace_id from context
+        trace_id = current_trace_id.get()
+        if trace_id:
+            record.trace_id = trace_id
+        else:
+            record.trace_id = "no-trace"
+        return True
+
+
+class TraceIdLogFormatter(logging.Formatter):
+    """
+    Log formatter that includes trace_id in the log output.
+    """
+    
+    def format(self, record: logging.LogRecord) -> str:
+        # Get trace_id from record (set by TraceIdLogFilter)
+        trace_id = getattr(record, 'trace_id', 'no-trace')
+        record.tracemsg = f"[{trace_id[:16]}] {record.getMessage()}"
+        return super().format(record)
+
+
+def setup_trace_logging():
+    """
+    Configure logging to include trace_id in all log messages.
+    Call this after init_tracing() to enable trace-aware logging.
+    """
+    # Get root logger
+    root_logger = logging.getLogger()
+    
+    # Add our filter to root logger
+    root_logger.addFilter(TraceIdLogFilter())
+    
+    # Update existing handlers with trace-aware formatter
+    for handler in root_logger.handlers:
+        # Create formatter that includes trace_id
+        formatter = logging.Formatter(
+            fmt='%(asctime)s [%(levelname)s] %(name)s [%(tracemsg)s]',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        handler.setFormatter(formatter)
 
 
 def init_tracing(service_name: str = "cogniforge-ai", app=None) -> None:

@@ -16,7 +16,7 @@ from memory import MemoryManager
 from services.rag import DocumentProcessor
 
 from app.routers import rag_router, agent_router, llm_router, memory_router
-from app.tracing import init_tracing, get_current_trace_id, TracingContextMiddleware
+from app.tracing import init_tracing, get_current_trace_id, TracingContextMiddleware, setup_trace_logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,7 +27,8 @@ async def lifespan(app: FastAPI):
     # Initialize tracing (with app for instrumentation)
     service_name = os.getenv("OTEL_SERVICE_NAME", "cogniforge-ai")
     init_tracing(service_name, app=app)
-    logger.info("Tracing initialized")
+    setup_trace_logging()
+    logger.info("Tracing initialized with trace_id logging")
     
     # Initialize LLM Providers
     app.state.llm_providers = {}
