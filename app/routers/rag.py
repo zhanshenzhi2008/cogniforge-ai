@@ -2,6 +2,8 @@
 RAG Service Router
 """
 import logging
+import os
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, File, Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -17,11 +19,36 @@ router = APIRouter(prefix="/api/rag", tags=["RAG"])
 # Global processor instance (set by main.py)
 _processor: Optional[DocumentProcessor] = None
 
+# Base directory for resolving relative file paths
+UPLOAD_BASE_DIR = os.getenv("UPLOAD_BASE_DIR", "")
+
 
 def set_processor(processor: DocumentProcessor):
     """Set the global document processor."""
     global _processor
     _processor = processor
+
+
+def resolve_file_path(file_path: str) -> str:
+    """
+    Resolve a file path, making relative paths absolute based on UPLOAD_BASE_DIR.
+    
+    Args:
+        file_path: The file path (absolute or relative)
+        
+    Returns:
+        Resolved absolute file path
+    """
+    path = Path(file_path)
+    if path.is_absolute():
+        return file_path
+    
+    if UPLOAD_BASE_DIR:
+        resolved = Path(UPLOAD_BASE_DIR) / path
+        logger.debug(f"Resolved relative path {file_path} to {resolved}")
+        return str(resolved)
+    
+    return file_path
 
 
 class ProcessRequest(BaseModel):
@@ -61,9 +88,13 @@ async def process_document(request: ProcessRequest):
     if not _processor:
         raise HTTPException(status_code=503, detail="RAG processor not initialized")
 
+    # Resolve file path (relative to UPLOAD_BASE_DIR if set)
+    resolved_path = resolve_file_path(request.file_path)
+    logger.info(f"Processing document from path: {resolved_path}")
+
     try:
         result = _processor.process_document(
-            file_path=request.file_path,
+            file_path=resolved_path,
             document_id=request.document_id,
             collection_name=request.collection_name,
             metadata=request.metadata

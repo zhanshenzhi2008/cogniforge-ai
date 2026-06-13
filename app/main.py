@@ -5,6 +5,13 @@ FastAPI application providing Agent, LLM, RAG, and Memory services.
 import os
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
+
+# Load .env file if it exists
+_env_file = Path(__file__).parent.parent / ".env"
+if _env_file.exists():
+    from dotenv import load_dotenv
+    load_dotenv(_env_file)
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
