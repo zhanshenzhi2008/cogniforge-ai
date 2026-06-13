@@ -39,11 +39,11 @@ class TraceIdLogFilter(logging.Filter):
 
 class TraceIdLogFormatter(colorlog.ColoredFormatter):
     """
-    Colored log formatter that includes trace_id in the log output.
+    Colored log formatter with file:line clickable in PyCharm.
+    Ensures trace_id is always available with graceful fallback.
     """
     
     def __init__(self, *args, **kwargs):
-        # Default colors for log levels
         kwargs.setdefault('log_colors', {
             'DEBUG': 'cyan',
             'INFO': 'green',
@@ -52,11 +52,11 @@ class TraceIdLogFormatter(colorlog.ColoredFormatter):
             'CRITICAL': 'red,bg_white',
         })
         super().__init__(*args, **kwargs)
-    
+
     def format(self, record: logging.LogRecord) -> str:
-        # Get trace_id from record (set by TraceIdLogFilter)
-        trace_id = getattr(record, 'trace_id', 'no-trace')
-        record.tracemsg = f"[{trace_id[:16]}] {record.getMessage()}"
+        # Always ensure trace_id exists on the record
+        if not hasattr(record, 'trace_id') or record.trace_id is None:
+            record.trace_id = 'no-trace'
         return super().format(record)
 
 
@@ -65,6 +65,10 @@ def setup_trace_logging():
     Configure logging to include trace_id in all log messages with color support.
     Call this after init_tracing() to enable trace-aware logging.
     """
+    # Format: 2026-06-13 20:34 | INFO | module | file.py:45 | [trace_id] | message
+    trace_format = '%(log_color)s%(asctime)s | %(levelname)-5s | %(name)s | %(filename)s:%(lineno)d | [%(trace_id)s] %(message)s'
+    date_format = '%Y-%m-%d %H:%M:%S'
+    
     # Get root logger
     root_logger = logging.getLogger()
     
@@ -74,11 +78,7 @@ def setup_trace_logging():
     
     # Update existing handlers with colored trace-aware formatter
     for handler in root_logger.handlers:
-        # Use TraceIdLogFormatter with colors (colors set in class __init__)
-        formatter = TraceIdLogFormatter(
-            fmt='%(asctime)s [%(levelname)s] %(name)s [%(tracemsg)s]',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
+        formatter = TraceIdLogFormatter(fmt=trace_format, datefmt=date_format)
         handler.setFormatter(formatter)
 
 
