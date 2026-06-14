@@ -17,7 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from llm import OpenAIProvider, AnthropicProvider
+from llm import OpenAIProvider, AnthropicProvider, OpenRouterProvider
 from agent import AgentExecutor
 from memory import MemoryManager
 from services.rag import DocumentProcessor
@@ -62,6 +62,16 @@ async def lifespan(app: FastAPI):
             logger.info("Anthropic provider initialized")
         except Exception as e:
             logger.warning(f"Failed to initialize Anthropic provider: {e}")
+
+    if os.getenv("OPENROUTER_API_KEY"):
+        try:
+            app.state.llm_providers["openrouter"] = OpenRouterProvider(
+                http_referer=os.getenv("OPENROUTER_HTTP_REFERER"),
+                x_open_router_title=os.getenv("OPENROUTER_TITLE"),
+            )
+            logger.info("OpenRouter provider initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize OpenRouter provider: {e}")
     
     # Initialize Memory Manager
     app.state.memory = MemoryManager()
