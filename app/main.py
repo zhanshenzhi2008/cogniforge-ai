@@ -25,7 +25,16 @@ from services.rag import DocumentProcessor
 from app.routers import rag_router, agent_router, llm_router, memory_router
 from app.tracing import init_tracing, get_current_trace_id, TracingContextMiddleware, setup_trace_logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-5s | %(name)s | %(message)s",
+    force=True,
+)
+# Ensure logs flush immediately
+import sys
+for handler in logging.root.handlers:
+    handler.stream = sys.stdout
+    handler.flush = sys.stdout.flush
 logger = logging.getLogger(__name__)
 
 

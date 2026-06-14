@@ -26,6 +26,9 @@ class OpenAIEmbedder(BaseEmbedder):
 
         if not self.api_key:
             logger.warning("OpenAI API key not provided. Embedding will not work.")
+        else:
+            key_preview = self.api_key[:7] + "..." if len(self.api_key) > 7 else "***"
+            logger.info(f"OpenAI embedder initialized with model={self.model}, key={key_preview}")
 
     def embed(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
@@ -42,13 +45,16 @@ class OpenAIEmbedder(BaseEmbedder):
         except ImportError:
             raise ImportError("openai package is required. Install with: pip install openai")
 
-        client = OpenAI(api_key=self.api_key)
+        logger.info(f"Calling OpenAI API for {len(texts)} embeddings with model {self.model}")
+
+        client = OpenAI(api_key=self.api_key, timeout=30.0)
 
         response = client.embeddings.create(
             model=self.model,
             input=texts
         )
 
+        logger.info(f"Received {len(response.data)} embeddings from OpenAI")
         return [item.embedding for item in response.data]
 
     def get_dimension(self) -> int:

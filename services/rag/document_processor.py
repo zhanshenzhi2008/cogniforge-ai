@@ -70,6 +70,7 @@ class DocumentProcessor:
             parsed = parser_registry.parse(file_path)
 
             logger.info(f"Splitting into chunks (size={self.chunk_size}, overlap={self.chunk_overlap})")
+            print(f"[DOC] Calling splitter with content len={len(parsed.content)}", flush=True)
             text_chunks = self.splitter.split(parsed.content, {
                 "document_id": document_id,
                 "source": file_path,

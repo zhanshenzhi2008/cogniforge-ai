@@ -35,16 +35,27 @@ class RecursiveCharacterSplitter(BaseSplitter):
 
     def split(self, text: str, metadata: dict = None) -> List[TextChunk]:
         """Split text into chunks using recursive character splitting."""
+        import time
+        import sys
+        start_time = time.time()
+        print(f"[SPLITTER] Starting split: text_len={len(text)}, chunk_size={self.chunk_size}", flush=True)
+
         if not text or len(text) <= self.chunk_size:
             if text:
+                print(f"[SPLITTER] Single chunk, returning after {time.time()-start_time:.3f}s", flush=True)
                 return [self._create_chunk(text, 0, 0, len(text), metadata)]
             return []
 
         chunks = []
         start = 0
         index = 0
+        loop_count = 0
 
         while start < len(text):
+            loop_count += 1
+            if loop_count > 100000:
+                print(f"[SPLITTER] Loop guard triggered: {loop_count} iterations at start={start}/{len(text)}", flush=True)
+                break
             end = min(start + self.chunk_size, len(text))
 
             if end < len(text):
@@ -59,6 +70,7 @@ class RecursiveCharacterSplitter(BaseSplitter):
             if start < 0:
                 start = 0
 
+        print(f"[SPLITTER] Done: {len(chunks)} chunks in {time.time()-start_time:.3f}s, loops={loop_count}", flush=True)
         return chunks
 
     def _find_best_split_point(self, text: str, start: int, end: int) -> int:
