@@ -1,0 +1,52 @@
+| =============================================================================
+# cogniforge-ai 生产部署
+# 部署位置：/opt/project/cogniforge/docker-compose-ai.yml
+# 单部署根目录：三个仓的 compose 都集中到 /opt/project/cogniforge/
+# 数据库：连接 ../envs/db.env（共享 db-net 寻址 db-postgres）
+# AI Provider keys：../envs/llm.env（共享）
+# 注意：AI 服务不直接对外，由 Go 后端代理访问
+# =============================================================================
+
+services:
+  cogniforge-ai:
+    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge-ai:latest
+    container_name: cogniforge-ai
+    restart: unless-stopped
+    expose:
+      - "8086"
+    env_file:
+      # 公共配置（部署根的上级目录）
+      - ../envs/db.env                 # PostgreSQL 连接
+      - ../envs/llm.env                # LLM Provider keys（OPENAI/ANTHROPIC/OPENROUTER 等）
+      # 本服务私有配置（与主仓同部署根目录）
+      - .env.ai                        # AI 服务独立配置（覆盖公共项）
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8086
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - cogniforge-uploads:/app/uploads
+    networks:
+      - cogniforge-net
+      - db-net           # ← 连接公用数据库网络
+    labels:
+      - "traefik.enable=false"   # AI 服务不直接对外，由 Go 后端代理
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  cogniforge-net:
+    external: true
+    name: cogniforge-net
+  db-net:
+    external: true
+    name: db-net
+
+volumes:
+  cogniforge-uploads:
+    external: true
+    name: cogniforge-uploads

@@ -1,0 +1,141 @@
+# =============================================================================
+# GitHub Actions CD 模板：cogniforge-ai (Python)
+# 适用：Docker Compose 部署
+# 用法：放到 .github/workflows/cd.yml，改顶部 env 块
+# =============================================================================
+
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      service:
+        description: '选择部署服务'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - cogniforge-ai
+
+# 防并发部署：同一个 ref 排队
+concurrency:
+  group: deploy-cogniforge-ai-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # ── 镜像相关（env，公开信息，不放 Secret）────────────────────
+  IMAGE_REGISTRY: ghcr.io                                          # ← 改 1：ghcr.io / registry.cn-hangzhou.aliyuncs.com
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}                  # ← 改 2：仓库 owner / 命名空间
+  IMAGE_PROJECT: cogniforge                                         # ← 改 3：项目名（与主仓库镜像目录一致）
+  IMAGE_NAME: cogniforge-ai                                         # ← 改 4：compose.yml 里的镜像前缀
+
+  # ── 服务器部署路径（env）────────────────────────────────────
+  # 单部署根目录：所有仓都部署到 /opt/project/cogniforge/，用不同 compose 文件
+  DEPLOY_PATH: /opt/project/cogniforge                               # ← 统一部署根目录
+  COMPOSE_FILE: docker-compose-ai.yml                               # ← AI 服务专用 compose 文件
+  COMPOSE_SERVICES: cogniforge-ai                                  # ← 改 7：compose.yml 里的服务名
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 构建 + 推送镜像
+  # ---------------------------------------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ${{ env.IMAGE_REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.IMAGE_REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.IMAGE_REGISTRY_TOKEN }}
+
+      - name: Build and push AI service image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # 部署到远程服务器
+  # ---------------------------------------------------------------------------
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Verify DEPLOY_SSH_KEY fingerprint
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          echo "=== Key 校验 ==="
+          wc -c ~/.ssh/deploy_key | awk '{print "字节数: " $1}'
+          shasum -a 256 ~/.ssh/deploy_key | awk '{print "sha256: " $1}'
+          ssh-keygen -l -f ~/.ssh/deploy_key | awk '{print "fingerprint: " $2 " (" $1 ")"}'
+
+      - name: Deploy to remote server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          script: |
+            set -e
+            echo "=== SSH OK $(whoami)@$(hostname) ==="
+
+            echo "${{ secrets.IMAGE_REGISTRY_TOKEN }}" | docker login ${{ env.IMAGE_REGISTRY }} -u "${{ github.actor }}" --password-stdin
+
+            # ── 确保网络存在 ─────────────────────────────────────
+            # db-net：由 PostgreSQL/Redis 容器创建
+            docker network inspect db-net >/dev/null 2>&1 || {
+              echo "ERROR: db-net 不存在，请先确保 PostgreSQL/Redis 已部署并 join db-net"
+              exit 1
+            }
+            # cogniforge-net：应用层网络
+            docker network inspect cogniforge-net >/dev/null 2>&1 || \
+              docker network create cogniforge-net
+
+            # ── 验证部署目录与 compose 文件（git clone 是首次手工做的）─
+            if [ ! -d "${{ env.DEPLOY_PATH }}" ]; then
+              echo "ERROR: 部署目录 ${{ env.DEPLOY_PATH }} 不存在，请先 git clone 该仓到此目录"
+              exit 1
+            fi
+            if [ ! -f "${{ env.DEPLOY_PATH }}/${{ env.COMPOSE_FILE }}" ]; then
+              echo "ERROR: ${{ env.DEPLOY_PATH }}/${{ env.COMPOSE_FILE }} 不存在"
+              exit 1
+            fi
+
+            # ── 服务器只拉镜像，不跑 git ────────────────────────────
+            cd ${{ env.DEPLOY_PATH }}
+            docker compose -f ${{ env.COMPOSE_FILE }} pull ${{ env.COMPOSE_SERVICES }}
+            docker compose -f ${{ env.COMPOSE_FILE }} up -d --no-deps ${{ env.COMPOSE_SERVICES }}
+            docker image prune -f --filter "until=72h"
+
+            sleep 15
+            docker compose -f ${{ env.COMPOSE_FILE }} ps ${{ env.COMPOSE_SERVICES }}
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deploy failed"

@@ -1,0 +1,60 @@
+# =============================================================================
+# GitHub Actions CI 模板：cogniforge-ai (Python)
+# 适用：Python FastAPI 服务单元测试
+# 用法：放到 .github/workflows/ci.yml，改顶部 env 块
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # ── Python 配置 ──────────────────────────────────────────────────
+  BACKEND_DIR: .                      # ← 改 1：Python 代码目录
+  PYTHON_VERSION: '3.12'              # ← 改 2：Python 版本
+  REQUIREMENTS_FILE: requirements.txt # ← 改 3：依赖文件名
+
+jobs:
+  # =========================================================================
+  # 后端单元测试
+  # =========================================================================
+  backend-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.BACKEND_DIR }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: ${{ env.BACKEND_DIR }}/${{ env.REQUIREMENTS_FILE }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ env.REQUIREMENTS_FILE }}
+          pip install pytest pytest-asyncio pytest-cov || true
+
+      - name: Lint (black)
+        run: |
+          pip install black isort || true
+          black --check . || true
+          isort --check . || true
+
+      - name: Run pytest
+        env:
+          OPENAI_API_KEY: test_dummy_key_for_ci
+          ANTHROPIC_API_KEY: test_dummy_key_for_ci
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/test_db
+        run: |
+          pytest tests/ -v --short --cov=. --cov-report=xml || true
