@@ -25,7 +25,8 @@ services:
       PORT: 8086
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
-      - cogniforge-uploads:/app/uploads
+      - ./data/uploads:/app/uploads
+      - ./data/logs:/app/logs
     networks:
       - cogniforge-net
       - db-net           # ← 连接公用数据库网络
@@ -45,8 +46,3 @@ networks:
   db-net:
     external: true
     name: db-net
-
-volumes:
-  cogniforge-uploads:
-    external: true
-    name: cogniforge-uploads
