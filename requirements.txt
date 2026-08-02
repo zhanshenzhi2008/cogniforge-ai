@@ -39,11 +39,11 @@ mypy>=1.0.0
 colorlog>=6.8.0
 python-dotenv>=1.0.0
 
-# Optional: Local embedding models (requires torch - install separately via conda)
-sentence-transformers>=2.0.0
-# Locked versions for compatibility
-transformers>=4.41.0,<5.0.0
-tokenizers>=0.22.0
-
 # Optional: Redis for distributed memory
 redis>=5.0.0
+
+# Optional: Local embedding models (heavy - install separately if needed)
+# Uncomment next line only if using local embeddings:
+#sentence-transformers>=2.0.0
+#transformers>=4.41.0,<5.0.0
+#tokenizers>=0.22.0
