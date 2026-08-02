@@ -1,7 +1,6 @@
 # =============================================================================
 # GitHub Actions CD 模板：cogniforge-ai (Python)
-# 适用：Docker Compose 部署
-# 用法：放到 .github/workflows/cd.yml，改顶部 env 块
+# 适用：GitHub 构建镜像 → 服务器 docker pull
 # =============================================================================
 
 name: Deploy
@@ -11,33 +10,23 @@ on:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      service:
-        description: '选择部署服务'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - cogniforge-ai
 
-# 防并发部署：同一个 ref 排队
+# 防并发部署
 concurrency:
   group: deploy-cogniforge-ai-${{ github.ref }}
   cancel-in-progress: false
 
 env:
-  # ── 镜像相关（env，公开信息，不放 Secret）────────────────────
-  IMAGE_REGISTRY: ghcr.io                                          # ← 改 1：ghcr.io / registry.cn-hangzhou.aliyuncs.com
-  IMAGE_NAMESPACE: ${{ github.repository_owner }}                  # ← 改 2：仓库 owner / 命名空间
-  IMAGE_PROJECT: cogniforge                                         # ← 改 3：项目名（与主仓库镜像目录一致）
-  IMAGE_NAME: cogniforge-ai                                         # ← 改 4：compose.yml 里的镜像前缀
+  # ── 镜像仓库（env，公开信息）───────────────────────────────
+  IMAGE_REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+  IMAGE_PROJECT: cogniforge
+  IMAGE_NAME: cogniforge-ai
 
-  # ── 服务器部署路径（env）────────────────────────────────────
-  # 单部署根目录：所有仓都部署到 /opt/project/cogniforge/，用不同 compose 文件
-  DEPLOY_PATH: /opt/project/cogniforge                               # ← 统一部署根目录
-  COMPOSE_FILE: docker-compose-ai.yml                               # ← AI 服务专用 compose 文件
-  COMPOSE_SERVICES: cogniforge-ai                                  # ← 改 7：compose.yml 里的服务名
+  # ── 服务器部署路径 ──────────────────────────────────────────
+  DEPLOY_PATH: /opt/project/cogniforge
+  COMPOSE_FILE: docker-compose-ai.yml
+  COMPOSE_SERVICES: cogniforge-ai
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -60,7 +49,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.IMAGE_REGISTRY_TOKEN }}
 
-      - name: Build and push AI service image
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -73,7 +62,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # 部署到远程服务器
+  # 部署到远程服务器（git pull 镜像 + docker compose up）
   # ---------------------------------------------------------------------------
   deploy:
     needs: build
@@ -82,17 +71,6 @@ jobs:
     environment: xcy
 
     steps:
-      - name: Verify DEPLOY_SSH_KEY fingerprint
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "=== Key 校验 ==="
-          wc -c ~/.ssh/deploy_key | awk '{print "字节数: " $1}'
-          shasum -a 256 ~/.ssh/deploy_key | awk '{print "sha256: " $1}'
-          ssh-keygen -l -f ~/.ssh/deploy_key | awk '{print "fingerprint: " $2 " (" $1 ")"}'
-
       - name: Deploy to remote server via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -100,66 +78,57 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
-          timeout: 20m
-          command_timeout: 20m
+          timeout: 15m
+          command_timeout: 15m
+          envs: DEPLOY_PATH,COMPOSE_FILE,COMPOSE_SERVICES,IMAGE_REGISTRY,IMAGE_NAMESPACE,IMAGE_PROJECT,IMAGE_NAME
           script: |
             set -e
             export DOCKER_CLI_HINTS=false
             echo "=== SSH OK $(whoami)@$(hostname) ==="
 
-            # ── Docker login（加失败重试）─────────────────────────────
-            for i in 1 2 3; do
-              echo "尝试登录镜像仓库 ($i/3)..."
-              if echo "${{ secrets.IMAGE_REGISTRY_TOKEN }}" | docker login ${{ env.IMAGE_REGISTRY }} -u "${{ github.actor }}" --password-stdin; then
-                echo "登录成功"
-                break
-              fi
-              echo "登录失败，等待 10s 重试..."
-              sleep 10
-            done
+            # ── 登录镜像仓库 ─────────────────────────────────────
+            echo "${{ secrets.IMAGE_REGISTRY_TOKEN }}" | docker login $IMAGE_REGISTRY -u "${{ github.actor }}" --password-stdin
 
             # ── 确保网络存在 ─────────────────────────────────────
             docker network inspect db-net >/dev/null 2>&1 || {
-              echo "ERROR: db-net 不存在，请先确保 PostgreSQL/Redis 已部署并 join db-net"
+              echo "ERROR: db-net 不存在，请先确保 PostgreSQL/Redis 已部署"
               exit 1
             }
             docker network inspect cogniforge-net >/dev/null 2>&1 || \
               docker network create cogniforge-net
 
-            # ── 验证部署目录与 compose 文件 ────────────────────────
-            if [ ! -d "${{ env.DEPLOY_PATH }}" ]; then
-              echo "ERROR: 部署目录 ${{ env.DEPLOY_PATH }} 不存在"
+            # ── 验证部署目录 ──────────────────────────────────────
+            if [ ! -d "$DEPLOY_PATH" ]; then
+              echo "ERROR: 部署目录 $DEPLOY_PATH 不存在"
               exit 1
             fi
-            if [ ! -f "${{ env.DEPLOY_PATH }}/${{ env.COMPOSE_FILE }}" ]; then
-              echo "ERROR: ${{ env.DEPLOY_PATH }}/${{ env.COMPOSE_FILE }} 不存在"
+            if [ ! -f "$DEPLOY_PATH/$COMPOSE_FILE" ]; then
+              echo "ERROR: $DEPLOY_PATH/$COMPOSE_FILE 不存在"
               exit 1
             fi
 
-            cd ${{ env.DEPLOY_PATH }}
+            # ── 拉取镜像 ─────────────────────────────────────────
+            IMAGE_FULL="$IMAGE_REGISTRY/$IMAGE_NAMESPACE/$IMAGE_PROJECT/$IMAGE_NAME"
+            echo "拉取镜像: ${IMAGE_FULL}:${{ github.sha }}"
+            docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" pull $COMPOSE_SERVICES
 
-            # ── 拉取镜像（加失败重试）─────────────────────────────
-            echo "开始拉取镜像..."
-            for i in 1 2 3; do
-              echo "拉取镜像 ($i/3)..."
-              if docker compose -f ${{ env.COMPOSE_FILE }} pull ${{ env.COMPOSE_SERVICES }}; then
-                echo "拉取成功"
-                break
-              fi
-              echo "拉取失败，等待 30s 重试..."
-              sleep 30
-            done
+            # ── 重打 tag（latest 供 compose 使用）────────────────
+            docker tag "${IMAGE_FULL}:${{ github.sha }}" "${IMAGE_FULL}:latest"
 
-            # ── 启动服务 ──────────────────────────────────────────
-            docker compose -f ${{ env.COMPOSE_FILE }} up -d --no-deps ${{ env.COMPOSE_SERVICES }}
+            # ── 重启容器 ─────────────────────────────────────────
+            docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" up -d --no-deps $COMPOSE_SERVICES
 
-            echo "等待 20s 让服务启动..."
-            sleep 20
+            echo "等待 15s 让服务启动..."
+            sleep 15
 
-            docker compose -f ${{ env.COMPOSE_FILE }} ps ${{ env.COMPOSE_SERVICES }}
-            docker compose -f ${{ env.COMPOSE_FILE }} logs --tail=20 ${{ env.COMPOSE_SERVICES }}
+            echo "=== 容器状态 ==="
+            docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" ps $COMPOSE_SERVICES
+            docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" logs --tail=20 $COMPOSE_SERVICES
+
+            # ── 清理旧镜像 ───────────────────────────────────────
+            docker image prune -f --filter "until=72h" || true
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "❌ Deploy failed"
+          echo " Deploy failed"
