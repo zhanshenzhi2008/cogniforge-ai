@@ -100,6 +100,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+          timeout: 15m
           script: |
             set -e
             echo "=== SSH OK $(whoami)@$(hostname) ==="
