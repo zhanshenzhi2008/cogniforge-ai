@@ -15,11 +15,9 @@ services:
     expose:
       - "8086"
     env_file:
-      # 公共配置（部署根的上级目录）
-      - ../envs/db.env                 # PostgreSQL 连接
-      - ../envs/llm.env                # LLM Provider keys（OPENAI/ANTHROPIC/OPENROUTER 等）
-      # 本服务私有配置（与主仓同部署根目录）
-      - .env.ai                        # AI 服务独立配置（覆盖公共项）
+      # AI 凭据（需先 cp envs/llm.env.example envs/llm.env 并填写，AI_ENABLED=false 时可留空）
+      - ../envs/global-db.env
+      - ../envs/global-llm.env
     environment:
       HOST: 0.0.0.0
       PORT: 8086
