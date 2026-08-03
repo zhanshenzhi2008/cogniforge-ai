@@ -107,13 +107,10 @@ jobs:
               exit 1
             fi
 
-            # ── 拉取镜像 ─────────────────────────────────────────
+            # ── 拉取镜像（直接拉 latest，与 compose 一致）─────────
             IMAGE_FULL="$IMAGE_REGISTRY/$IMAGE_NAMESPACE/$IMAGE_PROJECT/$IMAGE_NAME"
-            echo "拉取镜像: ${IMAGE_FULL}:${{ github.sha }}"
-            docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" pull $COMPOSE_SERVICES
-
-            # ── 重打 tag（latest 供 compose 使用）────────────────
-            docker tag "${IMAGE_FULL}:${{ github.sha }}" "${IMAGE_FULL}:latest"
+            echo "拉取镜像: ${IMAGE_FULL}:latest"
+            docker pull "${IMAGE_FULL}:latest"
 
             # ── 重启容器 ─────────────────────────────────────────
             docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" up -d --no-deps $COMPOSE_SERVICES
