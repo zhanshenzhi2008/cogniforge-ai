@@ -22,11 +22,11 @@ class PGVectorStore(BaseVectorStore):
         user: Optional[str] = None,
         password: Optional[str] = None,
     ):
-        self.host = host or os.getenv("POSTGRES_HOST", "localhost")
-        self.port = port or int(os.getenv("POSTGRES_PORT", "5432"))
-        self.database = database or os.getenv("POSTGRES_DB", "cogniforge")
-        self.user = user or os.getenv("POSTGRES_USER", "postgres")
-        self.password = password or os.getenv("POSTGRES_PASSWORD", "postgres")
+        self.host = host or os.getenv("PGSQL_HOST", "localhost")
+        self.port = port or int(os.getenv("PGSQL_PORT", "5432"))
+        self.database = database or os.getenv("PGSQL_DB", "cogniforge")
+        self.user = user or os.getenv("PGSQL_USERNAME", "postgres")
+        self.password = password or os.getenv("PGSQL_PASSWORD", "")
 
         self._conn = None
         self._cursor = None

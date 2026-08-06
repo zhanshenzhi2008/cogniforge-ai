@@ -119,9 +119,11 @@ uvicorn app.main:app --host 0.0.0.0 --port 8086 --reload
 | `EMBEDDER_TYPE` | Embedder type (`openai` or `local`) | `openai` |
 | `CHUNK_SIZE` | Text chunk size | `512` |
 | `CHUNK_OVERLAP` | Chunk overlap | `50` |
-| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `POSTGRES_DB` | Database name | `cogniforge` |
+| `PGSQL_HOST` | PostgreSQL host | `localhost` |
+| `PGSQL_PORT` | PostgreSQL port | `5432` |
+| `PGSQL_DB` | Database name | `cogniforge` |
+| `PGSQL_USERNAME` | Database user | `postgres` |
+| `PGSQL_PASSWORD` | Database password | - |
 
 ## API Endpoints
 

@@ -15,9 +15,12 @@ services:
     expose:
       - "8086"
     env_file:
+      # 数据库连接（需先 cp envs/db.env.example envs/db.env 并填写）
+      - ../envs/db.env
       # AI 凭据（需先 cp envs/llm.env.example envs/llm.env 并填写，AI_ENABLED=false 时可留空）
-      - ../envs/global-db.env
-      - ../envs/global-llm.env
+      - ../envs/llm.env
+      # 本服务私有配置
+      - .env
     environment:
       HOST: 0.0.0.0
       PORT: 8086
