@@ -111,19 +111,21 @@ uvicorn app.main:app --host 0.0.0.0 --port 8086 --reload
 
 ## Environment Variables
 
+LLM 密钥**不要**写在 Python `.env` 里。与 Go 控制台「模型」页共用表 `ai_providers`。
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_API_KEY` | OpenAI API key | - |
-| `ANTHROPIC_API_KEY` | Anthropic API key | - |
-| `DEFAULT_MODEL` | Default LLM model | `gpt-4o` |
-| `EMBEDDER_TYPE` | Embedder type (`openai` or `local`) | `openai` |
-| `CHUNK_SIZE` | Text chunk size | `512` |
-| `CHUNK_OVERLAP` | Chunk overlap | `50` |
+| `ENCRYPTION_KEY` | 与 Go 相同，用于解密 `ai_providers.api_key` | 必填 |
 | `PGSQL_HOST` | PostgreSQL host | `localhost` |
 | `PGSQL_PORT` | PostgreSQL port | `5432` |
 | `PGSQL_DB` | Database name | `cogniforge` |
 | `PGSQL_USERNAME` | Database user | `postgres` |
 | `PGSQL_PASSWORD` | Database password | - |
+| `EMBEDDER_TYPE` | Embedder type (`openai` or `local`) | `openai` |
+| `CHUNK_SIZE` | Text chunk size | `512` |
+| `CHUNK_OVERLAP` | Chunk overlap | `50` |
+
+已废弃（请从 `/opt/project/cogniforge-ai/.env` 删除）：`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`OPENROUTER_API_KEY`、`OPENAI_BASE_URL`、`DEFAULT_MODEL`、`OPENROUTER_HTTP_REFERER`、`OPENROUTER_TITLE`
 
 ## API Endpoints
 
@@ -136,12 +138,10 @@ curl http://localhost:8086/health
 ### LLM Endpoints (`/api/llm`)
 
 ```bash
-# Chat
+# Chat（provider 可省略，默认用模型页当前启用的供应商）
 curl -X POST http://localhost:8086/api/llm/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-4o",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```

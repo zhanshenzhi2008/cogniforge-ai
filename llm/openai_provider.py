@@ -14,24 +14,36 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(LLMProvider):
-    """OpenAI LLM provider using the official OpenAI SDK"""
-    
-    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    """OpenAI-compatible LLM provider (OpenAI, DeepSeek, Groq, SiliconFlow, …)."""
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        default_model: Optional[str] = None,
+        extra_headers: Optional[dict] = None,
+        name: str = "openai",
+    ):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = base_url or os.getenv("OPENAI_BASE_URL")
-        
+        self.default_model = default_model or os.getenv("DEFAULT_MODEL", "gpt-4o")
+        self._name = name
+
         if not self.api_key:
-            raise ValueError("OPENAI_API_KEY is required")
-        
-        self.client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-        )
-        logger.info(f"OpenAI provider initialized (base_url: {self.base_url})")
-    
+            raise ValueError("API key is required (ai_providers or OPENAI_API_KEY)")
+
+        client_kwargs: dict[str, Any] = {"api_key": self.api_key}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        if extra_headers:
+            client_kwargs["default_headers"] = extra_headers
+
+        self.client = AsyncOpenAI(**client_kwargs)
+        logger.info("OpenAI-compatible provider initialized name=%s base_url=%s", self._name, self.base_url)
+
     @property
     def name(self) -> str:
-        return "openai"
+        return self._name
     
     def supports_functions(self) -> bool:
         return True
@@ -39,7 +51,7 @@ class OpenAIProvider(LLMProvider):
     async def chat(self, request: dict) -> dict:
         """Send a non-streaming chat completion request"""
         messages = request.get("messages", [])
-        model = request.get("model", os.getenv("DEFAULT_MODEL", "gpt-4o"))
+        model = request.get("model") or self.default_model
         temperature = request.get("temperature", 0.7)
         max_tokens = request.get("max_tokens", 4096)
         functions = request.get("functions")
@@ -93,7 +105,7 @@ class OpenAIProvider(LLMProvider):
     async def chat_stream(self, request: dict) -> AsyncIterator[dict]:
         """Send a streaming chat completion request"""
         messages = request.get("messages", [])
-        model = request.get("model", os.getenv("DEFAULT_MODEL", "gpt-4o"))
+        model = request.get("model") or self.default_model
         temperature = request.get("temperature", 0.7)
         max_tokens = request.get("max_tokens", 4096)
         functions = request.get("functions")

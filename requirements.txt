@@ -21,6 +21,7 @@ python-docx>=0.8.0
 
 # Vector Store
 psycopg2-binary>=2.9.0
+cryptography>=42.0.0
 
 # Observability - OpenTelemetry (compatible versions for Python 3.13)
 opentelemetry-api>=1.28.0

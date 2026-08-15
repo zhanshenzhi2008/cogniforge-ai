@@ -41,8 +41,8 @@ class AgentExecutor:
             "stream": false,       # Whether to stream response
         }
         """
-        provider_name = request.get("provider", "openai")
-        provider = self.providers.get(provider_name)
+        provider_name = request.get("provider") or "default"
+        provider = self.providers.get(provider_name) or self.providers.get("default")
         
         if not provider:
             return {"error": f"Provider '{provider_name}' not available"}

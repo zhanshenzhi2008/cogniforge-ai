@@ -20,15 +20,15 @@ class OpenAIEmbedder(BaseEmbedder):
         "text-embedding-ada-002": 1536,
     }
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model = model or self.DEFAULT_MODEL
+        self.base_url = base_url or os.getenv("OPENAI_BASE_URL")
 
         if not self.api_key:
             logger.warning("OpenAI API key not provided. Embedding will not work.")
         else:
-            key_preview = self.api_key[:7] + "..." if len(self.api_key) > 7 else "***"
-            logger.info(f"OpenAI embedder initialized with model={self.model}, key={key_preview}")
+            logger.info("OpenAI embedder initialized model=%s base_url=%s", self.model, self.base_url)
 
     def embed(self, text: str) -> List[float]:
         """Generate embedding for a single text."""
@@ -45,9 +45,12 @@ class OpenAIEmbedder(BaseEmbedder):
         except ImportError:
             raise ImportError("openai package is required. Install with: pip install openai")
 
-        logger.info(f"Calling OpenAI API for {len(texts)} embeddings with model {self.model}")
+        logger.info(f"Calling embeddings API for {len(texts)} texts with model {self.model}")
 
-        client = OpenAI(api_key=self.api_key, timeout=30.0)
+        client_kwargs = {"api_key": self.api_key, "timeout": 30.0}
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
+        client = OpenAI(**client_kwargs)
 
         response = client.embeddings.create(
             model=self.model,

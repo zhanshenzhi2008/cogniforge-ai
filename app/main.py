@@ -17,7 +17,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from llm import OpenAIProvider, AnthropicProvider, OpenRouterProvider
+from llm.active_config import build_providers, load_active_provider
 from agent import AgentExecutor
 from memory import MemoryManager
 from services.rag import DocumentProcessor
@@ -46,32 +46,13 @@ async def lifespan(app: FastAPI):
     setup_trace_logging()
     logger.info("Tracing initialized with trace_id logging")
     
-    # Initialize LLM Providers
-    app.state.llm_providers = {}
-    
-    if os.getenv("OPENAI_API_KEY"):
-        try:
-            app.state.llm_providers["openai"] = OpenAIProvider()
-            logger.info("OpenAI provider initialized")
-        except Exception as e:
-            logger.warning(f"Failed to initialize OpenAI provider: {e}")
-    
-    if os.getenv("ANTHROPIC_API_KEY"):
-        try:
-            app.state.llm_providers["anthropic"] = AnthropicProvider()
-            logger.info("Anthropic provider initialized")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Anthropic provider: {e}")
-
-    if os.getenv("OPENROUTER_API_KEY"):
-        try:
-            app.state.llm_providers["openrouter"] = OpenRouterProvider(
-                http_referer=os.getenv("OPENROUTER_HTTP_REFERER"),
-                x_open_router_title=os.getenv("OPENROUTER_TITLE"),
-            )
-            logger.info("OpenRouter provider initialized")
-        except Exception as e:
-            logger.warning(f"Failed to initialize OpenRouter provider: {e}")
+    # LLM + embeddings: same ai_providers row as the Go Models page
+    active = load_active_provider()
+    app.state.llm_providers = build_providers(active)
+    if app.state.llm_providers:
+        logger.info("LLM providers from ai_providers: %s", list(app.state.llm_providers.keys()))
+    else:
+        logger.warning("no enabled ai_providers; /api/llm and /api/agent will be unavailable")
     
     # Initialize Memory Manager
     app.state.memory = MemoryManager()
@@ -84,16 +65,22 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Agent executor initialized")
     
-    # Initialize RAG Processor
+    # Initialize RAG Processor (embeddings reuse the same provider credentials)
     embedder_type = os.getenv("EMBEDDER_TYPE", "openai")
     vector_store_type = os.getenv("VECTOR_STORE_TYPE", "pgvector")
-    
+    embedder_kwargs: dict = {}
+    if embedder_type == "openai" and active and active.openai_compatible:
+        embedder_kwargs["api_key"] = active.api_key
+        if active.base_url:
+            embedder_kwargs["base_url"] = active.base_url
+
     try:
         app.state.rag_processor = DocumentProcessor(
             embedder_type=embedder_type,
             vector_store_type=vector_store_type,
             chunk_size=int(os.getenv("CHUNK_SIZE", "512")),
-            chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "50"))
+            chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "50")),
+            **embedder_kwargs,
         )
         app.state.rag_processor.connect()
         logger.info("RAG processor initialized")

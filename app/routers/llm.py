@@ -46,7 +46,7 @@ async def llm_health():
 @router.post("/chat")
 async def llm_chat(request: ChatRequest):
     """Generic LLM chat endpoint."""
-    provider = _providers.get(request.provider)
+    provider = _providers.get(request.provider) or _providers.get("default")
 
     if not provider:
         raise HTTPException(status_code=400, detail=f"Provider '{request.provider}' not available")
