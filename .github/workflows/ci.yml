@@ -53,8 +53,7 @@ jobs:
 
       - name: Run pytest
         env:
-          OPENAI_API_KEY: test_dummy_key_for_ci
-          ANTHROPIC_API_KEY: test_dummy_key_for_ci
+          COGNIFORGE_API_URL: http://localhost:8080
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/test_db
         run: |
           pytest tests/ -v --short --cov=. --cov-report=xml || true

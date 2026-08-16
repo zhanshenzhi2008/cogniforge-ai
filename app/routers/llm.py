@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 
+from llm.model_config import get_snapshot
 from app.tracing import get_current_trace_id
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ def set_providers(providers: Dict[str, Any]):
 
 
 class ChatRequest(BaseModel):
-    provider: str = "openai"
+    provider: str = "default"
     model: Optional[str] = None
     messages: List[Dict[str, Any]] = []
     temperature: float = 0.7
@@ -36,9 +37,12 @@ class ChatRequest(BaseModel):
 @router.get("/health")
 async def llm_health():
     """Health check for LLM service."""
+    snap = get_snapshot()
     return {
         "status": "ok",
         "providers": list(_providers.keys()),
+        "default_model": snap.default_model if snap else "",
+        "model_cache_rev": snap.rev if snap else 0,
         "trace_id": get_current_trace_id(),
     }
 

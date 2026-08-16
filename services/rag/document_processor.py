@@ -37,7 +37,7 @@ class DocumentProcessor:
 
     def __init__(
         self,
-        embedder_type: str = "openai",
+        embedder_type: str = "go",
         vector_store_type: str = "pgvector",
         chunk_size: int = 512,
         chunk_overlap: int = 50,

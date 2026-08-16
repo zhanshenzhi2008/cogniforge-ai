@@ -26,9 +26,9 @@ echo "  Port: $PORT"
 echo "  Log Level: $LOG_LEVEL"
 echo "======================================"
 
-# Check for required environment variables
-if [ -z "$OPENAI_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "Warning: No API keys found. Set OPENAI_API_KEY or ANTHROPIC_API_KEY"
+# Check Go backend URL (LLM keys live in Go / Models page, not here)
+if [ -z "$COGNIFORGE_API_URL" ]; then
+    echo "Note: COGNIFORGE_API_URL unset, defaulting to http://localhost:8080"
 fi
 
 # Start the server

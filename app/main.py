@@ -17,7 +17,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from llm.active_config import build_providers, load_active_provider
+from llm.go_gateway import GoGateway
+from llm.model_config import init_cache, get_snapshot
 from agent import AgentExecutor
 from memory import MemoryManager
 from services.rag import DocumentProcessor
@@ -45,14 +46,23 @@ async def lifespan(app: FastAPI):
     init_tracing(service_name, app=app)
     setup_trace_logging()
     logger.info("Tracing initialized with trace_id logging")
-    
-    # LLM + embeddings: same ai_providers row as the Go Models page
-    active = load_active_provider()
-    app.state.llm_providers = build_providers(active)
-    if app.state.llm_providers:
-        logger.info("LLM providers from ai_providers: %s", list(app.state.llm_providers.keys()))
+
+    init_cache()
+    snap = get_snapshot()
+    if snap:
+        logger.info("model config cache hit model=%s provider=%s rev=%s", snap.default_model, snap.provider, snap.rev)
     else:
-        logger.warning("no enabled ai_providers; /api/llm and /api/agent will be unavailable")
+        logger.info("model config cache empty (Go will fill Redis on first chat or provider save)")
+    
+    # LLM: call Go only. Keys / model live in ai_providers (Models page).
+    go_api = os.getenv("COGNIFORGE_API_URL", "http://localhost:8080").rstrip("/")
+    go_llm = GoGateway(api_url=go_api)
+    app.state.llm_providers = {
+        "default": go_llm,
+        "go": go_llm,
+        "openai": go_llm,  # old /api/llm clients default to provider=openai
+    }
+    logger.info("LLM gateway -> %s", go_api)
     
     # Initialize Memory Manager
     app.state.memory = MemoryManager()
@@ -65,14 +75,9 @@ async def lifespan(app: FastAPI):
     )
     logger.info("Agent executor initialized")
     
-    # Initialize RAG Processor (embeddings reuse the same provider credentials)
-    embedder_type = os.getenv("EMBEDDER_TYPE", "openai")
+    # RAG embeddings also go through Go unless EMBEDDER_TYPE=local
+    embedder_type = os.getenv("EMBEDDER_TYPE", "go")
     vector_store_type = os.getenv("VECTOR_STORE_TYPE", "pgvector")
-    embedder_kwargs: dict = {}
-    if embedder_type == "openai" and active and active.openai_compatible:
-        embedder_kwargs["api_key"] = active.api_key
-        if active.base_url:
-            embedder_kwargs["base_url"] = active.base_url
 
     try:
         app.state.rag_processor = DocumentProcessor(
@@ -80,7 +85,6 @@ async def lifespan(app: FastAPI):
             vector_store_type=vector_store_type,
             chunk_size=int(os.getenv("CHUNK_SIZE", "512")),
             chunk_overlap=int(os.getenv("CHUNK_OVERLAP", "50")),
-            **embedder_kwargs,
         )
         app.state.rag_processor.connect()
         logger.info("RAG processor initialized")

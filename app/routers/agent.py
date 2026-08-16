@@ -23,7 +23,7 @@ def set_executor(executor):
 
 
 class ChatRequest(BaseModel):
-    provider: str = "openai"
+    provider: str = "default"
     model: Optional[str] = None
     system_prompt: Optional[str] = None
     messages: List[Dict[str, Any]] = []

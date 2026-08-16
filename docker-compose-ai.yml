@@ -2,7 +2,7 @@
 # cogniforge-ai 生产部署
 # 部署位置：/opt/project/cogniforge/docker-compose-ai.yml
 # 单部署根目录：三个仓的 compose 都集中到 /opt/project/cogniforge/
-# 数据库：经 external 网络 db-net 访问 pgsql；LLM 配置读 ai_providers（与 Go 模型页同一套）
+# 数据库：经 external 网络 db-net 访问 pgsql（pgvector）；LLM 一律回调 Go，不读 API Key
 # 注意：AI 服务不直接对外，由 Go 后端代理访问
 # =============================================================================
 
@@ -20,6 +20,9 @@ services:
       HOST: 0.0.0.0
       PORT: 8086
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      COGNIFORGE_API_URL: http://cogniforge:8080
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
     volumes:
       - ./data/uploads:/app/uploads
       - ./data/logs:/app/logs
