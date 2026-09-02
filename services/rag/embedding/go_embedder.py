@@ -40,17 +40,6 @@ class GoEmbedder(BaseEmbedder):
             return []
 
         payload: dict = {"input": texts}
-        if not self.model:
-            try:
-                from llm.model_config import get_snapshot
-                snap = get_snapshot()
-                if snap and snap.default_model:
-                    self.model = snap.default_model
-            except Exception:
-                pass
-        if self.model:
-            payload["model"] = self.model
-
         url = f"{self.api_url}/api/v1/embeddings"
         logger.info("Calling Go embeddings for %s texts", len(texts))
         resp = self._client.post(url, json=payload)

@@ -96,10 +96,12 @@ async def lifespan(app: FastAPI):
     from app.routers.rag import set_processor
     from app.routers.agent import set_executor
     from app.routers.llm import set_providers
-    from app.routers.memory import set_memory
+    from app.routers.memory import set_memory, set_llm_provider, set_rag_processor
     
     set_providers(app.state.llm_providers)
     set_memory(app.state.memory)
+    set_llm_provider(app.state.llm_providers.get("default"))
+    set_rag_processor(app.state.rag_processor)
     set_executor(app.state.agent_executor)
     if app.state.rag_processor:
         set_processor(app.state.rag_processor)
