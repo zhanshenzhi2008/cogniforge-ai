@@ -14,5 +14,6 @@ def create_embedder(embedder_type: str = "go", **kwargs) -> BaseEmbedder:
         return GoEmbedder(**allowed)
     if embedder_type == "local":
         from .local_embedder import LocalEmbedder
-        return LocalEmbedder(**kwargs)
+        allowed = {k: kwargs[k] for k in ("model_name", "device") if k in kwargs}
+        return LocalEmbedder(**allowed)
     raise ValueError(f"Unknown embedder type: {embedder_type}")
