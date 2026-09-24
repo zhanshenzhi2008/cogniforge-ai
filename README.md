@@ -63,7 +63,6 @@ cogniforge-ai/
 │       └── vector_store/    # Vector storage
 ├── tests/
 ├── pyproject.toml
-├── requirements.txt
 ├── .env.example
 ├── start.sh
 └── README.md
@@ -74,7 +73,11 @@ cogniforge-ai/
 ### 1. Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+# Modern standard: use pyproject.toml
+pip install -e .
+
+# Or with optional dev dependencies
+pip install -e ".[dev]"
 ```
 
 ### 2. Configure Environment

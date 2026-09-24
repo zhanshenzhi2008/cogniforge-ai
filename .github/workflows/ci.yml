@@ -16,7 +16,7 @@ env:
   # ── Python 配置 ──────────────────────────────────────────────────
   BACKEND_DIR: .                      # ← 改 1：Python 代码目录
   PYTHON_VERSION: '3.12'              # ← 改 2：Python 版本
-  REQUIREMENTS_FILE: requirements.txt # ← 改 3：依赖文件名
+  REQUIREMENTS_FILE: pyproject.toml  # ← 改 3：依赖文件名（现代标准用 pyproject.toml）
 
 jobs:
   # =========================================================================
@@ -27,7 +27,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: ${{ env.BACKEND_DIR }}
+        working-directory: .
 
     steps:
       - uses: actions/checkout@v6
@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r ${{ env.REQUIREMENTS_FILE }}
+          pip install -e .
           pip install pytest pytest-asyncio pytest-cov || true
 
       - name: Lint (black)
