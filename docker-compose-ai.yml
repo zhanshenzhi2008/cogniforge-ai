@@ -11,6 +11,9 @@ services:
     image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge-ai:latest
     container_name: cogniforge-ai
     restart: unless-stopped
+    mem_limit: ${AI_MEM_LIMIT:-512m}
+    mem_reservation: ${AI_MEM_RESERVATION:-256m}
+    cpus: ${AI_CPUS:-1.0}
     expose:
       - "8086"
     env_file:
