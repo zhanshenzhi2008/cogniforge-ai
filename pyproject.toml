@@ -54,6 +54,10 @@ dependencies = [
     "opentelemetry-propagator-b3>=1.28.0",
 ]
 
+# 本地 pip install -e . 时告诉 hatch 打哪些顶层包（Docker 构建不依赖此项）
+[tool.hatch.build.targets.wheel]
+packages = ["app", "agent", "llm", "memory", "services", "tools", "utils"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",

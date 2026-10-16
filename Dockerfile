@@ -10,11 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml and install dependencies (modern standard)
+# Install runtime deps from pyproject.toml only（不打包 hatch wheel，避免缺 README / 包目录）
 COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+RUN python -c 'import tomllib; from pathlib import Path; deps=tomllib.loads(Path("pyproject.toml").read_text())["project"]["dependencies"]; Path("/tmp/requirements.txt").write_text("\n".join(deps)+"\n")' \
+    && pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Copy application code
+# Copy application code（PYTHONPATH=/app，uvicorn 直接跑 app.main）
 COPY . .
 
 # Create non-root user

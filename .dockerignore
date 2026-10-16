@@ -1,6 +1,7 @@
 .git
 .gitignore
 *.md
+!README.md
 .idea
 .vscode
 .env
