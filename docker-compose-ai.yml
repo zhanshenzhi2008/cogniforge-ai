@@ -8,7 +8,7 @@
 
 services:
   cogniforge-ai:
-    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge/cogniforge-ai:latest
+    image: ghcr.io/${IMAGE_NAMESPACE:-zhanshenzhi2008}/cogniforge-ai:latest
     container_name: cogniforge-ai
     restart: unless-stopped
     mem_limit: ${AI_MEM_LIMIT:-512m}

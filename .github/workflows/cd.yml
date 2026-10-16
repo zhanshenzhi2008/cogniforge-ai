@@ -20,7 +20,7 @@ env:
   # ── 镜像仓库（env，公开信息）───────────────────────────────
   IMAGE_REGISTRY: ghcr.io
   IMAGE_NAMESPACE: ${{ github.repository_owner }}
-  IMAGE_PROJECT: cogniforge
+  # 与仓名对齐（同 ai-job-hunter）：ghcr.io/<owner>/<IMAGE_NAME>
   IMAGE_NAME: cogniforge-ai
 
   # ── 服务器部署路径 ──────────────────────────────────────────
@@ -60,8 +60,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_PROJECT }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -88,7 +88,7 @@ jobs:
           port: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
           timeout: 15m
           command_timeout: 15m
-          envs: DEPLOY_PATH,COMPOSE_FILE,COMPOSE_SERVICES,IMAGE_REGISTRY,IMAGE_NAMESPACE,IMAGE_PROJECT,IMAGE_NAME
+          envs: DEPLOY_PATH,COMPOSE_FILE,COMPOSE_SERVICES,IMAGE_REGISTRY,IMAGE_NAMESPACE,IMAGE_NAME
           script: |
             set -e
             export DOCKER_CLI_HINTS=false
@@ -116,7 +116,7 @@ jobs:
             fi
 
             # ── 拉取镜像（直接拉 latest，与 compose 一致）─────────
-            IMAGE_FULL="$IMAGE_REGISTRY/$IMAGE_NAMESPACE/$IMAGE_PROJECT/$IMAGE_NAME"
+            IMAGE_FULL="$IMAGE_REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME"
             echo "拉取镜像: ${IMAGE_FULL}:latest"
             docker pull "${IMAGE_FULL}:latest"
 
