@@ -36,6 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: xcy
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v6
 
@@ -47,7 +51,7 @@ jobs:
         with:
           registry: ${{ env.IMAGE_REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.IMAGE_REGISTRY_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -70,6 +74,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment: xcy
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Deploy to remote server via SSH
         uses: appleboy/ssh-action@v1
@@ -87,7 +95,7 @@ jobs:
             echo "=== SSH OK $(whoami)@$(hostname) ==="
 
             # ── 登录镜像仓库 ─────────────────────────────────────
-            echo "${{ secrets.IMAGE_REGISTRY_TOKEN }}" | docker login $IMAGE_REGISTRY -u "${{ github.actor }}" --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login $IMAGE_REGISTRY -u "${{ github.actor }}" --password-stdin
 
             # ── 确保网络存在 ─────────────────────────────────────
             docker network inspect db-net >/dev/null 2>&1 || {
