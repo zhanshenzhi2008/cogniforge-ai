@@ -214,7 +214,7 @@ Python LLM    →  Go /api/v1/chat/*   （同一套 ai_providers）
 Python embed  →  Go /api/v1/embeddings
 ```
 
-生产 compose：`COGNIFORGE_API_URL=http://cogniforge:8080`
+生产：与 Go 共用 `/opt/project/cogniforge/.env`，写 `COGNIFORGE_API_URL=http://cogniforge:8080`、`COGNIFORGE_PORT=8080`；`docker-compose-ai.yml` 只 `env_file`，不写死业务变量。AI 监听由 Dockerfile CMD 固定 `0.0.0.0:8086`。
 
 ## License
 

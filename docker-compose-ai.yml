@@ -4,6 +4,7 @@
 # 单部署根目录：三个仓的 compose 都集中到 /opt/project/cogniforge/
 # 数据库：经 external 网络 db-net 访问 pgsql（pgvector）；LLM 一律回调 Go，不读 API Key
 # 注意：AI 服务不直接对外，由 Go 后端代理访问
+# 配置：全部走同级 .env（env_file）；监听地址见 Dockerfile CMD（0.0.0.0:8086）
 # =============================================================================
 
 services:
@@ -17,17 +18,7 @@ services:
     expose:
       - "8086"
     env_file:
-      # 本服务私有配置
       - .env
-    environment:
-      # TZ 由 Dockerfile ENV 提供；仅临时覆盖时再解开
-      # TZ: ${TZ:-Asia/Shanghai}
-      HOST: 0.0.0.0
-      PORT: 8086
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      COGNIFORGE_API_URL: http://cogniforge:8080
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
     volumes:
       - ./data/uploads:/app/uploads
       - ./data/logs:/app/logs
