@@ -20,6 +20,8 @@ services:
       # 本服务私有配置
       - .env
     environment:
+      # TZ 由 Dockerfile ENV 提供；仅临时覆盖时再解开
+      # TZ: ${TZ:-Asia/Shanghai}
       HOST: 0.0.0.0
       PORT: 8086
       LOG_LEVEL: ${LOG_LEVEL:-INFO}

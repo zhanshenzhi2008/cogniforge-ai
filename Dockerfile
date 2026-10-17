@@ -5,10 +5,13 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies（tzdata + TZ：Portainer / 应用日志用北京时间）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Asia/Shanghai
 
 # Install runtime deps from pyproject.toml only（不打包 hatch wheel，避免缺 README / 包目录）
 COPY pyproject.toml .
