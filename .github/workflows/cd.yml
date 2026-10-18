@@ -142,8 +142,7 @@ jobs:
             docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" ps $COMPOSE_SERVICES
             docker compose -f "$DEPLOY_PATH/$COMPOSE_FILE" logs --tail=20 $COMPOSE_SERVICES
 
-            # ── 清理旧镜像 ───────────────────────────────────────
-            docker image prune -f --filter "until=72h" || true
+            # 不在此处 prune：与其它仓并行 pull 会撞 containerd lease
 
       - name: Notify on failure
         if: failure()
