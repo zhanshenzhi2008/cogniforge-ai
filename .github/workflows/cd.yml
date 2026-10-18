@@ -65,6 +65,9 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          # 关 attestation，避免 compose pull 报 content digest not found
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.event.workflow_run.head_sha || github.sha }}
             ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
