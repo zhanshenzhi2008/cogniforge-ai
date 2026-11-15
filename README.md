@@ -8,6 +8,7 @@ FastAPI-based AI service: Agent、RAG（解析/分块/向量库）、Memory。
 - **Agent Execution**: Run AI agents with tools and memory（LLM 经 Go）
 - **LLM via Go hub**: `COGNIFORGE_API_URL` → `/api/v1/chat/completions` / `/api/v1/chat/stream`
 - **RAG Knowledge Base**: Document parsing, chunking, pgvector；embedding 经 Go `/api/v1/embeddings`
+  - PostgreSQL 用关键字参数连接（密码可含 `@`/`#`，勿再拼 URI）
 - **Memory Management**: Conversation history and context
 - **Function Calling**: Tool registration and execution
 

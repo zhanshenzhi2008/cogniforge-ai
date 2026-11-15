@@ -31,22 +31,25 @@ class PGVectorStore(BaseVectorStore):
         self._conn = None
         self._cursor = None
 
-    def _get_connection_string(self) -> str:
-        """Build PostgreSQL connection string."""
-        return (
-            f"postgresql://{self.user}:{self.password}@"
-            f"{self.host}:{self.port}/{self.database}"
-        )
-
     def connect(self) -> None:
-        """Connect to PostgreSQL."""
+        """Connect to PostgreSQL.
+
+        用关键字参数连接，避免密码含 @/# 等字符时 URI 被拆错
+        （曾出现 host 被解析成「…#@pgsql」导致 RAG 起不来）。
+        """
         try:
             import psycopg2
             from psycopg2.extras import execute_values
             self.psycopg2 = psycopg2
             self.execute_values = execute_values
 
-            self._conn = self.psycopg2.connect(self._get_connection_string())
+            self._conn = self.psycopg2.connect(
+                host=self.host,
+                port=self.port,
+                dbname=self.database,
+                user=self.user,
+                password=self.password,
+            )
             self._cursor = self._conn.cursor()
             logger.info(f"Connected to PostgreSQL at {self.host}:{self.port}")
 
