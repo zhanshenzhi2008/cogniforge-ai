@@ -20,7 +20,9 @@ services:
     env_file:
       - .env
     volumes:
+      # Go 存相对路径 uploads/documents/...；与宿主机约定路径双挂，避免 UPLOAD_BASE_DIR 写死 /opt/... 后找不到文件
       - ./data/uploads:/app/uploads
+      - ./data/uploads:/opt/data/cogniforge/uploads
       - ./data/logs:/app/logs
     networks:
       - cogniforge-net

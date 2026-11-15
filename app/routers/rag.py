@@ -30,25 +30,52 @@ def set_processor(processor: DocumentProcessor):
 
 
 def resolve_file_path(file_path: str) -> str:
+    """把 Go 传来的上传路径解析成 AI 容器内可读路径。
+
+    Go 常存相对路径 ``uploads/documents/...``；生产 .env 可能把
+    ``UPLOAD_BASE_DIR`` 写成宿主机 ``/opt/data/cogniforge/...``，
+    与 compose 挂载的 ``/app/uploads`` 不一致。这里统一映射到容器挂载点。
     """
-    Resolve a file path, making relative paths absolute based on UPLOAD_BASE_DIR.
-    
-    Args:
-        file_path: The file path (absolute or relative)
-        
-    Returns:
-        Resolved absolute file path
-    """
-    path = Path(file_path)
+    raw = (file_path or "").strip()
+    if not raw:
+        return raw
+
+    container_uploads = Path("/app/uploads")
+    s = raw.replace("\\", "/")
+
+    # 宿主机 / 旧配置绝对路径 → /app/uploads/...
+    for prefix in (
+        "/opt/data/cogniforge/uploads",
+        "/opt/data/cogniforge",
+        "/app/uploads",
+    ):
+        if s == prefix or s.startswith(prefix + "/"):
+            rest = s[len(prefix):].lstrip("/")
+            if rest.startswith("uploads/"):
+                rest = rest[len("uploads/"):]
+            resolved = container_uploads / rest if rest else container_uploads
+            logger.debug("Remapped upload path %s -> %s", raw, resolved)
+            return str(resolved)
+
+    path = Path(s)
     if path.is_absolute():
-        return file_path
-    
-    if UPLOAD_BASE_DIR:
-        resolved = Path(UPLOAD_BASE_DIR) / path
-        logger.debug(f"Resolved relative path {file_path} to {resolved}")
+        return s
+
+    if s.startswith("uploads/"):
+        resolved = container_uploads / s[len("uploads/"):]
+        logger.debug("Resolved relative upload path %s -> %s", raw, resolved)
         return str(resolved)
-    
-    return file_path
+
+    if UPLOAD_BASE_DIR:
+        base = Path(UPLOAD_BASE_DIR)
+        # 若 base 仍是宿主机路径，改用容器挂载
+        if str(base).startswith("/opt/data/cogniforge"):
+            base = container_uploads
+        resolved = base / s
+        logger.debug("Resolved relative path %s -> %s", raw, resolved)
+        return str(resolved)
+
+    return str(container_uploads / s)
 
 
 class ProcessRequest(BaseModel):
