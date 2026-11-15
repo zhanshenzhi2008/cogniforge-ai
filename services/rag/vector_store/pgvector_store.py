@@ -109,6 +109,7 @@ class PGVectorStore(BaseVectorStore):
                 )
                 """
             )
+            self._conn.commit()
         except Exception as e:
             self._rollback_quiet()
             logger.warning("Could not create table with embedding column: %s", e)
@@ -127,11 +128,13 @@ class PGVectorStore(BaseVectorStore):
                 self._cursor.execute(
                     f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS embedding vector({dimension})"
                 )
+                self._conn.commit()
             except Exception as alter_err:
                 self._rollback_quiet()
                 logger.warning("Could not add vector column: %s", alter_err)
                 raise
 
+        # 索引失败不能 rollback，否则会把刚建的表一并撤销
         try:
             self._cursor.execute(
                 f"""
@@ -141,11 +144,10 @@ class PGVectorStore(BaseVectorStore):
                 WITH (m = 16, ef_construction = 64)
                 """
             )
+            self._conn.commit()
         except Exception as e:
             self._rollback_quiet()
             logger.warning(f"Could not create HNSW index: {e}")
-
-        self._conn.commit()
 
     def delete_collection(self, collection_name: str) -> None:
         """Delete a collection (table)."""
