@@ -45,6 +45,7 @@ def resolve_file_path(file_path: str) -> str:
 
     # 宿主机 / 旧配置绝对路径 → /app/uploads/...
     for prefix in (
+        "/opt/project/cogniforge/data/uploads",
         "/opt/data/cogniforge/uploads",
         "/opt/data/cogniforge",
         "/app/uploads",
@@ -56,6 +57,14 @@ def resolve_file_path(file_path: str) -> str:
             resolved = container_uploads / rest if rest else container_uploads
             logger.debug("Remapped upload path %s -> %s", raw, resolved)
             return str(resolved)
+
+    # 任意 .../uploads/xxx → /app/uploads/xxx
+    marker = "/uploads/"
+    if marker in s:
+        rest = s.split(marker, 1)[1]
+        resolved = container_uploads / rest
+        logger.debug("Remapped by uploads marker %s -> %s", raw, resolved)
+        return str(resolved)
 
     path = Path(s)
     if path.is_absolute():
@@ -69,7 +78,9 @@ def resolve_file_path(file_path: str) -> str:
     if UPLOAD_BASE_DIR:
         base = Path(UPLOAD_BASE_DIR)
         # 若 base 仍是宿主机路径，改用容器挂载
-        if str(base).startswith("/opt/data/cogniforge"):
+        if str(base).startswith("/opt/data/cogniforge") or str(base).startswith(
+            "/opt/project/cogniforge"
+        ):
             base = container_uploads
         resolved = base / s
         logger.debug("Resolved relative path %s -> %s", raw, resolved)
@@ -163,6 +174,12 @@ async def preview_chunks(request: PreviewRequest):
         raise HTTPException(status_code=503, detail="RAG processor not initialized")
 
     resolved_path = resolve_file_path(request.file_path)
+    if not Path(resolved_path).is_file():
+        logger.error("Preview file missing: raw=%s resolved=%s", request.file_path, resolved_path)
+        raise HTTPException(
+            status_code=400,
+            detail=f"预览文件不存在或 AI 读不到上传目录: {resolved_path}",
+        )
     try:
         data = _processor.preview_chunks(
             file_path=resolved_path,
@@ -174,9 +191,12 @@ async def preview_chunks(request: PreviewRequest):
         )
         data["trace_id"] = get_current_trace_id()
         return data
+    except ImportError as e:
+        logger.error(f"Preview missing dependency: {e}")
+        raise HTTPException(status_code=500, detail=f"PDF 解析依赖缺失: {e}") from e
     except Exception as e:
         logger.error(f"Error previewing chunks: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"预览分块失败: {e}") from e
 
 
 @router.post("/search")

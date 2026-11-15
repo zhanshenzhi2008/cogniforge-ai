@@ -103,8 +103,13 @@ class DocumentProcessor:
     ) -> dict:
         """Parse + split only (no embedding). Used by upload UI preview."""
         parsed = parser_registry.parse(file_path)
+        content = (parsed.content or "").strip()
+        if not content:
+            raise ValueError(
+                "未能从文件提取文字（扫描版 PDF / 空文件无法预览分块，请换可复制文字的 PDF 或 TXT/MD）"
+            )
         chunks = self._build_chunks(
-            content=parsed.content,
+            content=content,
             document_id=document_id,
             source=file_path,
             metadata=metadata,
@@ -117,7 +122,7 @@ class DocumentProcessor:
         return {
             "total_chunks": len(chunks),
             "preview_count": len(preview),
-            "char_count": len(parsed.content or ""),
+            "char_count": len(content),
             "chunks": [
                 {
                     "index": c.index,
