@@ -173,13 +173,27 @@ curl -X DELETE http://localhost:8086/api/memory/user_123
 ### RAG Endpoints (`/api/rag`)
 
 ```bash
-# Process document
+# Process document（可选 chunk_size / chunk_overlap / split_mode / separator）
 curl -X POST http://localhost:8086/api/rag/process \
   -H "Content-Type: application/json" \
   -d '{
     "file_path": "/path/to/document.pdf",
     "document_id": "doc_001",
-    "collection_name": "my_kb"
+    "collection_name": "my_kb",
+    "split_mode": "recursive",
+    "chunk_size": 512,
+    "chunk_overlap": 50
+  }'
+
+# Preview chunks only（不向量化；split_mode: recursive | fixed | separator）
+curl -X POST http://localhost:8086/api/rag/preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_path": "/path/to/document.pdf",
+    "split_mode": "fixed",
+    "chunk_size": 400,
+    "chunk_overlap": 40,
+    "max_chunks": 20
   }'
 
 # Search knowledge base

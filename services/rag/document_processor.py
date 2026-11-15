@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from .parsers import registry as parser_registry
-from .splitters import RecursiveCharacterSplitter
+from .splitters.factory import create_splitter
 from .embedding import create_embedder, BaseEmbedder
 from .vector_store import create_vector_store, BaseVectorStore, VectorEntry
 
@@ -45,7 +45,6 @@ class DocumentProcessor:
     ):
         self.embedder: BaseEmbedder = create_embedder(embedder_type, **embedder_kwargs)
         self.vector_store: BaseVectorStore = create_vector_store(vector_store_type)
-        self.splitter = RecursiveCharacterSplitter(chunk_size, chunk_overlap)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
@@ -57,34 +56,112 @@ class DocumentProcessor:
         """Disconnect from the vector store."""
         self.vector_store.disconnect()
 
+    def _build_chunks(
+        self,
+        content: str,
+        document_id: str,
+        source: str,
+        metadata: Optional[dict] = None,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+        split_mode: str = "recursive",
+        separator: Optional[str] = None,
+    ) -> List[ChunkResult]:
+        size = chunk_size if chunk_size is not None else self.chunk_size
+        overlap = chunk_overlap if chunk_overlap is not None else self.chunk_overlap
+        splitter = create_splitter(split_mode, size, overlap, separator)
+        text_chunks = splitter.split(
+            content,
+            {
+                "document_id": document_id,
+                "source": source,
+                **(metadata or {}),
+            },
+        )
+        chunks: List[ChunkResult] = []
+        for i, tc in enumerate(text_chunks):
+            chunks.append(
+                ChunkResult(
+                    chunk_id=f"{document_id}_chunk_{i}",
+                    content=tc.content,
+                    index=i,
+                    metadata=tc.metadata,
+                )
+            )
+        return chunks
+
+    def preview_chunks(
+        self,
+        file_path: str,
+        document_id: str = "preview",
+        metadata: dict = None,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+        split_mode: str = "recursive",
+        separator: Optional[str] = None,
+        max_chunks: int = 20,
+    ) -> dict:
+        """Parse + split only (no embedding). Used by upload UI preview."""
+        parsed = parser_registry.parse(file_path)
+        chunks = self._build_chunks(
+            content=parsed.content,
+            document_id=document_id,
+            source=file_path,
+            metadata=metadata,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            split_mode=split_mode,
+            separator=separator,
+        )
+        preview = chunks[: max(1, min(max_chunks, 50))]
+        return {
+            "total_chunks": len(chunks),
+            "preview_count": len(preview),
+            "char_count": len(parsed.content or ""),
+            "chunks": [
+                {
+                    "index": c.index,
+                    "content": c.content,
+                    "char_count": len(c.content),
+                }
+                for c in preview
+            ],
+        }
+
     def process_document(
         self,
         file_path: str,
         document_id: str,
         collection_name: str,
-        metadata: dict = None
+        metadata: dict = None,
+        chunk_size: Optional[int] = None,
+        chunk_overlap: Optional[int] = None,
+        split_mode: str = "recursive",
+        separator: Optional[str] = None,
     ) -> ProcessingResult:
         """Process a document through the full RAG pipeline."""
         try:
             logger.info(f"Parsing document: {file_path}")
             parsed = parser_registry.parse(file_path)
 
-            logger.info(f"Splitting into chunks (size={self.chunk_size}, overlap={self.chunk_overlap})")
-            text_chunks = self.splitter.split(parsed.content, {
-                "document_id": document_id,
-                "source": file_path,
-                **(metadata or {})
-            })
-
-            chunks = []
-            for i, tc in enumerate(text_chunks):
-                chunk_id = f"{document_id}_chunk_{i}"
-                chunks.append(ChunkResult(
-                    chunk_id=chunk_id,
-                    content=tc.content,
-                    index=i,
-                    metadata=tc.metadata
-                ))
+            size = chunk_size if chunk_size is not None else self.chunk_size
+            overlap = chunk_overlap if chunk_overlap is not None else self.chunk_overlap
+            logger.info(
+                "Splitting into chunks (mode=%s size=%s overlap=%s)",
+                split_mode,
+                size,
+                overlap,
+            )
+            chunks = self._build_chunks(
+                content=parsed.content,
+                document_id=document_id,
+                source=file_path,
+                metadata=metadata,
+                chunk_size=size,
+                chunk_overlap=overlap,
+                split_mode=split_mode,
+                separator=separator,
+            )
 
             logger.info(f"Generating embeddings for {len(chunks)} chunks")
             texts = [c.content for c in chunks]

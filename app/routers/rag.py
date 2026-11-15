@@ -83,6 +83,19 @@ class ProcessRequest(BaseModel):
     document_id: str
     collection_name: str
     metadata: Optional[dict] = None
+    chunk_size: Optional[int] = None
+    chunk_overlap: Optional[int] = None
+    split_mode: Optional[str] = "recursive"
+    separator: Optional[str] = None
+
+
+class PreviewRequest(BaseModel):
+    file_path: str
+    chunk_size: Optional[int] = 512
+    chunk_overlap: Optional[int] = 50
+    split_mode: Optional[str] = "recursive"
+    separator: Optional[str] = None
+    max_chunks: Optional[int] = 20
 
 
 class SearchRequest(BaseModel):
@@ -124,7 +137,11 @@ async def process_document(request: ProcessRequest):
             file_path=resolved_path,
             document_id=request.document_id,
             collection_name=request.collection_name,
-            metadata=request.metadata
+            metadata=request.metadata,
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
+            split_mode=request.split_mode or "recursive",
+            separator=request.separator,
         )
 
         return {
@@ -136,6 +153,29 @@ async def process_document(request: ProcessRequest):
         }
     except Exception as e:
         logger.error(f"Error processing document: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/preview")
+async def preview_chunks(request: PreviewRequest):
+    """Parse + split only; used by upload UI to preview chunks."""
+    if not _processor:
+        raise HTTPException(status_code=503, detail="RAG processor not initialized")
+
+    resolved_path = resolve_file_path(request.file_path)
+    try:
+        data = _processor.preview_chunks(
+            file_path=resolved_path,
+            chunk_size=request.chunk_size,
+            chunk_overlap=request.chunk_overlap,
+            split_mode=request.split_mode or "recursive",
+            separator=request.separator,
+            max_chunks=request.max_chunks or 20,
+        )
+        data["trace_id"] = get_current_trace_id()
+        return data
+    except Exception as e:
+        logger.error(f"Error previewing chunks: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
