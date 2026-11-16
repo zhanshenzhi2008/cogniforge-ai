@@ -12,6 +12,8 @@ FastAPI-based AI service: Agent、RAG（解析/分块/向量库）、Memory。
 - **Memory Management**: Conversation history and context
 - **Function Calling**: Tool registration and execution
 
+> **TODO（约一周后，目标 2026-11-23）**：同仓规划 `crawl/` + `Dockerfile.crawl` + compose 第二服务（Crawl4AI），与本 AI 进程分离部署。本期网页入库由 Go 调 Jina Reader / Firecrawl（Key 在控制台「模型」页）。
+
 ## Architecture
 
 ```
