@@ -35,6 +35,9 @@ FastAPI-based AI service: Agent、RAG（解析/分块/向量库）、Memory。
 
 不要把 Go 聊天再转到 Python `/api/llm`，否则会绕一圈。
 
+与 Go 仓分层（gateway / app / runtime / capability）的概念对照见  
+[`docs/02-architecture/01-layering-alignment.md`](docs/02-architecture/01-layering-alignment.md)（本期只对齐说明，不强制改 Python 目录）。
+
 ## Project Structure
 
 ```
